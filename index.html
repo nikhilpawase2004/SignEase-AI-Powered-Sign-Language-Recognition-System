@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SignEase — Real-time ASL & ISL recognition powered by NVIDIA NIM AI">
+    <title>SignEase — Unified Sign Language Detection</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+    <!-- Animated background -->
+    <div class="bg-orbs" aria-hidden="true">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="orb orb-4"></div>
+    </div>
+
+    <!-- ── Navbar ── -->
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+
+        <div class="navbar-brand">
+            <div class="navbar-logo" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/>
+                    <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/>
+                    <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/>
+                    <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+                </svg>
+            </div>
+            <span class="navbar-title">SignEase</span>
+            <span class="navbar-version">v2.0</span>
+        </div>
+
+        <!-- Mode Switcher (center of navbar) -->
+        <div class="navbar-center">
+            <div class="mode-pill">
+                <button class="mode-pill-btn active" id="mode-asl" onclick="switchMode('ASL')">
+                    <span class="flag">🇺🇸</span> ASL
+                </button>
+                <button class="mode-pill-btn" id="mode-isl" onclick="switchMode('ISL')">
+                    <span class="flag">🇮🇳</span> ISL
+                </button>
+            </div>
+        </div>
+
+        <div class="navbar-right">
+            <div class="stream-status-pill" id="stream-status-pill">
+                <span class="status-dot active" id="stream-dot"></span>
+                <span id="stream-status">Live</span>
+            </div>
+            <button class="nav-btn" onclick="toggleStream()" id="stream-toggle-btn" aria-label="Toggle stream">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" id="stream-icon">
+                    <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>
+                </svg>
+            </button>
+            <!-- User pill -->
+            <div class="user-pill" title="{{ user_email }}">
+                <div class="user-avatar">{{ user_name[0] | upper }}</div>
+                <span class="user-name-text">{{ user_name.split(' ')[0] }}</span>
+            </div>
+            <a href="/logout" class="nav-btn logout-btn" title="Logout" id="logout-btn" aria-label="Logout">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+            </a>
+        </div>
+
+    </nav>
+
+    <!-- Toast -->
+    <div class="toast-container" id="toast-container" role="alert" aria-live="polite"></div>
+
+    <!-- ── Main Layout ── -->
+    <main class="main-layout">
+
+        <!-- ════════════════ LEFT — VIDEO PANEL ════════════════ -->
+        <section class="video-panel">
+
+            <!-- Header -->
+            <div class="panel-header">
+                <div class="panel-title-group">
+                    <div class="panel-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m15 10 4.553-2.069A1 1 0 0 1 21 8.82v6.362a1 1 0 0 1-1.447.894L15 14"/>
+                            <rect x="2" y="6" width="13" height="12" rx="2"/>
+                        </svg>
+                    </div>
+                    <h1 class="panel-title">Live Detection</h1>
+                </div>
+                <div class="panel-badges">
+                    <span class="badge badge-live">
+                        <span class="badge-dot"></span> Live
+                    </span>
+                    <span class="badge badge-mode" id="mode-badge">ASL</span>
+                </div>
+            </div>
+
+            <!-- ── Video (gradient border) ── -->
+            <div class="video-wrapper">
+                <div class="video-inner">
+                    <img id="video-feed" class="video-feed" src="" alt="Sign Language Detection Stream">
+
+                    <!-- Scan line -->
+                    <div class="scan-line" aria-hidden="true"></div>
+
+                    <!-- Corner brackets -->
+                    <div class="corner corner-tl" aria-hidden="true"></div>
+                    <div class="corner corner-tr" aria-hidden="true"></div>
+                    <div class="corner corner-bl" aria-hidden="true"></div>
+                    <div class="corner corner-br" aria-hidden="true"></div>
+
+                    <!-- Prediction overlay -->
+                    <div class="video-overlay-bottom">
+                        <div class="prediction-block">
+                            <div class="prediction-meta">Detected Sign</div>
+                            <div class="prediction-char" id="prediction-value">—</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Sentence (gradient border) ── -->
+            <div class="sentence-block">
+                <div class="sentence-block-inner">
+                    <div class="sentence-header">
+                        <div class="sentence-label">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            </svg>
+                            Accumulated Sentence
+                        </div>
+                        <span class="sentence-char-count" id="char-count">0 chars</span>
+                    </div>
+                    <div class="sentence-output" id="sentence-text">
+                        <span class="placeholder">Start signing to build a sentence...</span>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ════════════════ RIGHT — SIDEBAR ════════════════ -->
+        <aside class="right-panel">
+
+            <!-- Controls -->
+            <div class="control-card" id="ctrl-card">
+                <div class="card-inner">
+                    <div class="card-header-row">
+                        <div class="card-label">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/>
+                                <rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>
+                            </svg>
+                            Controls
+                        </div>
+                    </div>
+
+                    <div class="controls-grid">
+
+                        <!-- Speak -->
+                        <button class="ctrl-btn btn-speak" onclick="speakText()" id="speak-btn" title="Speak the sentence aloud">
+                            <div class="ctrl-icon">
+                                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                                </svg>
+                            </div>
+                            <span class="ctrl-label">Speak</span>
+                        </button>
+
+                        <!-- Clear -->
+                        <button class="ctrl-btn btn-clear" onclick="clearSentence()" title="Clear all text">
+                            <div class="ctrl-icon">
+                                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="m19 6-.867 12.142A2 2 0 0 1 16.138 20H7.862a2 2 0 0 1-1.995-1.858L5 6"/>
+                                    <path d="M10 11v6"/><path d="M14 11v6"/>
+                                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                                </svg>
+                            </div>
+                            <span class="ctrl-label">Clear</span>
+                        </button>
+
+                        <!-- Space -->
+                        <button class="ctrl-btn btn-space" onclick="addSpace()" title="Add space">
+                            <div class="ctrl-icon">
+                                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M4 20h16"/><path d="M6 12H4v4h16v-4h-2"/>
+                                </svg>
+                            </div>
+                            <span class="ctrl-label">Space</span>
+                        </button>
+
+                        <!-- Delete -->
+                        <button class="ctrl-btn btn-delete" onclick="deleteLast()" title="Delete last character">
+                            <div class="ctrl-icon">
+                                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M10 5a2 2 0 0 0-1.344.519l-6.328 5.74a1 1 0 0 0 0 1.481l6.328 5.741A2 2 0 0 0 10 19h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z"/>
+                                    <path d="m12 9 6 6"/><path d="m18 9-6 6"/>
+                                </svg>
+                            </div>
+                            <span class="ctrl-label">Delete</span>
+                        </button>
+
+                        <!-- AI Correct (full width) -->
+                        <button class="ctrl-btn btn-ai ctrl-full" onclick="correctWithAI()" id="ai-btn" title="Correct with NVIDIA NIM">
+                            <div class="ctrl-icon">
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+                                </svg>
+                            </div>
+                            <span class="ctrl-label">Correct with NVIDIA NIM AI</span>
+                        </button>
+
+                        <!-- Save Session (full width) -->
+                        <button class="ctrl-btn btn-save ctrl-full" onclick="saveSession()" id="save-btn" title="Save current sentence to history">
+                            <div class="ctrl-icon">
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                                    <polyline points="17 21 17 13 7 13 7 21"/>
+                                    <polyline points="7 3 7 8 15 8"/>
+                                </svg>
+                            </div>
+                            <span class="ctrl-label">Save Session</span>
+                        </button>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gesture Guide -->
+            <div class="control-card">
+                <div class="card-inner">
+                    <div class="card-header-row">
+                        <div class="card-label">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/>
+                                <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/>
+                                <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/>
+                                <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+                            </svg>
+                            Gesture Guide
+                        </div>
+                        <span class="card-hint">Click to expand</span>
+                    </div>
+                    <div class="gesture-img-wrapper">
+                        <img id="gesture-guide" class="gesture-guide-img"
+                            src="{{ url_for('static', filename='images/asl_signs.jpeg') }}"
+                            alt="ASL Gesture Reference"
+                            onclick="openGestureGuide()">
+                        <div class="gesture-hover-overlay">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                            </svg>
+                            Open Full View
+                        </div>
+                    </div>
+                    <!-- ISL Special Keys -->
+                    <div class="isl-keys" id="isl-keys-info" style="display:none;">
+                        <div class="isl-key-row">
+                            <kbd class="key-badge">1</kbd>
+                            <span>Adds a space</span>
+                        </div>
+                        <div class="isl-key-row">
+                            <kbd class="key-badge">2</kbd>
+                            <span>Deletes last word</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My History Panel -->
+            <div class="control-card" id="history-card">
+                <div class="card-inner">
+                    <div class="card-header-row">
+                        <div class="card-label">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/>
+                            </svg>
+                            My History
+                        </div>
+                        <button class="card-refresh-btn" onclick="loadHistory()" title="Refresh history" id="history-refresh-btn">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="history-list" id="history-list">
+                        <div class="history-empty" id="history-empty">No saved sessions yet.<br>Sign something and click <strong>Save Session</strong>!</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Status -->
+            <div class="control-card">
+                <div class="card-inner">
+                    <div class="card-header-row">
+                        <div class="card-label">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+                                <path d="m9 12 2 2 4-4"/>
+                            </svg>
+                            System Status
+                        </div>
+                    </div>
+                    <div class="status-grid">
+                        <div class="status-row">
+                            <div class="status-info">
+                                <div class="status-dot-sm" id="asl-dot"></div>
+                                <span class="status-name">ASL Model</span>
+                            </div>
+                            <span class="status-chip" id="asl-model-status">Checking</span>
+                        </div>
+                        <div class="status-row">
+                            <div class="status-info">
+                                <div class="status-dot-sm" id="isl-dot"></div>
+                                <span class="status-name">ISL Model</span>
+                            </div>
+                            <span class="status-chip" id="isl-model-status">Checking</span>
+                        </div>
+                        <div class="status-row">
+                            <div class="status-info">
+                                <div class="status-dot-sm" id="tts-dot"></div>
+                                <span class="status-name">TTS Engine</span>
+                            </div>
+                            <span class="status-chip" id="tts-status">Checking</span>
+                        </div>
+                        <div class="status-row">
+                            <div class="status-info">
+                                <div class="status-dot-sm" id="nvidia-dot"></div>
+                                <span class="status-name">NVIDIA NIM</span>
+                            </div>
+                            <span class="status-chip" id="nvidia-status">Checking</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar credit -->
+            <div class="sidebar-footer">
+                <span>© 2025 <strong>SignEase</strong></span>
+                <span class="footer-sep">·</span>
+                <span>by <strong>Nachiket Shinde</strong></span>
+                <span class="footer-sep">·</span>
+                <span>KodeNeurons</span>
+            </div>
+
+        </aside>
+
+    </main>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+
+</html>

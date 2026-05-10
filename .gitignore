@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.env
+.env/
+.venv/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Conda
+*.conda
+
+# Jupyter
+.ipynb_checkpoints/
+
+
+
+# Dataset (large files — keep out of repo)
+dataset from kaggle/
+keypoint.csv
+
+# Model files (large binaries — track with Git LFS or exclude)
+# Uncomment below to exclude models from git:
+# models/*.p
+# models/*.h5
+# models/*.task
+
+# Misc
+*.log
+*.bak
+*.tmp
